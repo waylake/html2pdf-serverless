@@ -1,5 +1,6 @@
 import express, { Express, Request, Response } from 'express';
 import { PDFDocument } from 'pdf-lib';
+import path from 'path';
 
 // PDF 관련 인터페이스 정의
 interface PdfOptions {
@@ -41,6 +42,9 @@ interface ErrorResponse {
 
 const app: Express = express();
 app.use(express.json({ limit: '10mb' }));
+
+// 정적 파일 제공 설정
+app.use(express.static(path.join(__dirname, '../public')));
 
 const isVercel = !!process.env.VERCEL || !!process.env.AWS_LAMBDA_FUNCTION_NAME;
 let puppeteer: any;
@@ -240,6 +244,11 @@ app.post('/generate-pdf', async (req: Request, res: Response) => {
 });
 
 app.get('/', (_req: Request, res: Response) => {
+  res.sendFile(path.join(__dirname, '../public/index.html'));
+});
+
+// API 정보 제공 엔드포인트
+app.get('/api-info', (_req: Request, res: Response) => {
   res.json({ 
     message: 'HTML to PDF service is running.',
     version: '1.1.0',

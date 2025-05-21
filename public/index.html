@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HTML to PDF Serverless API</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/themes/prism-okaidia.min.css">
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+      line-height: 1.6;
+      color: #333;
+      padding-top: 20px;
+      padding-bottom: 40px;
+    }
+    .container {
+      max-width: 1000px;
+    }
+    h1, h2, h3, h4 {
+      margin-top: 1.5rem;
+      margin-bottom: 1rem;
+      font-weight: 600;
+    }
+    pre {
+      background-color: #282c34;
+      border-radius: 8px;
+      margin: 16px 0;
+    }
+    code {
+      font-family: 'Source Code Pro', Menlo, Monaco, Consolas, 'Courier New', monospace;
+    }
+    .api-box {
+      background-color: #f8f9fa;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 16px;
+      border-left: 4px solid #0d6efd;
+    }
+    .method {
+      font-weight: bold;
+      padding: 4px 8px;
+      border-radius: 4px;
+      margin-right: 8px;
+    }
+    .post {
+      background-color: #10b981;
+      color: white;
+    }
+    .get {
+      background-color: #3b82f6;
+      color: white;
+    }
+    table {
+      width: 100%;
+      margin-bottom: 1rem;
+    }
+    th {
+      background-color: #f1f5f9;
+    }
+    .card {
+      margin-bottom: 20px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    .card-header {
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1 class="text-center mb-4">HTML to PDF Serverless API</h1>
+    <p class="lead text-center">HTML 페이지를 PDF로 변환하는 서버리스 API 서비스 문서</p>
+    
+    <div class="card my-4">
+      <div class="card-header bg-primary text-white">
+        API 상태
+      </div>
+      <div class="card-body">
+        <p class="mb-0">버전: <span class="badge bg-success">1.1.0</span></p>
+        <p class="mb-0">상태: <span class="badge bg-success">Running</span></p>
+      </div>
+    </div>
+
+    <h2>API 개요</h2>
+    <p>
+      이 서비스는 HTML 문자열을 PDF 문서로 변환하는 API를 제공합니다. 
+      <a href="https://github.com/puppeteer/puppeteer">Puppeteer</a>를 사용하여 HTML을 렌더링하고 PDF로 출력합니다.
+      여러 페이지의 HTML을 제공하여 단일 PDF로 병합할 수 있습니다.
+    </p>
+
+    <h2>API 엔드포인트</h2>
+
+    <div class="api-box">
+      <div class="d-flex align-items-center mb-2">
+        <span class="method post">POST</span>
+        <code>/generate-pdf</code>
+      </div>
+      <p>HTML 문자열을 PDF로 변환합니다.</p>
+      
+      <h4>요청 형식</h4>
+      <pre><code class="language-json">{
+  "pages": ["<HTML 문자열 1>", "<HTML 문자열 2>", ...],
+  "filename": "output.pdf",
+  "options": {
+    "format": "A4",
+    "landscape": false,
+    "margin": {
+      "top": "1cm",
+      "right": "1cm",
+      "bottom": "1cm",
+      "left": "1cm"
+    },
+    "printBackground": true,
+    "timeout": 50000
+  }
+}</code></pre>
+
+      <h4>매개변수</h4>
+      <table class="table table-bordered">
+        <thead>
+          <tr>
+            <th>속성</th>
+            <th>타입</th>
+            <th>필수</th>
+            <th>설명</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>pages</code></td>
+            <td>배열</td>
+            <td>예</td>
+            <td>PDF로 변환할 HTML 문자열 배열</td>
+          </tr>
+          <tr>
+            <td><code>filename</code></td>
+            <td>문자열</td>
+            <td>아니오</td>
+            <td>다운로드 시 사용할 파일 이름 (기본값: document.pdf)</td>
+          </tr>
+          <tr>
+            <td><code>options</code></td>
+            <td>객체</td>
+            <td>아니오</td>
+            <td>PDF 생성 옵션</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h4>PDF 옵션</h4>
+      <table class="table table-bordered">
+        <thead>
+          <tr>
+            <th>속성</th>
+            <th>타입</th>
+            <th>설명</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>format</code></td>
+            <td>문자열</td>
+            <td>용지 크기 (A4, Letter, Legal, Tabloid, Ledger, A0-A6 등)</td>
+          </tr>
+          <tr>
+            <td><code>width</code>/<code>height</code></td>
+            <td>숫자</td>
+            <td>사용자 지정 페이지 크기 (픽셀 단위) - format과 함께 사용 불가</td>
+          </tr>
+          <tr>
+            <td><code>landscape</code></td>
+            <td>불리언</td>
+            <td>가로 방향 여부 (기본값: false)</td>
+          </tr>
+          <tr>
+            <td><code>margin</code></td>
+            <td>객체</td>
+            <td>페이지 여백 (top, right, bottom, left)</td>
+          </tr>
+          <tr>
+            <td><code>printBackground</code></td>
+            <td>불리언</td>
+            <td>배경 색상 및 이미지 인쇄 여부 (기본값: true)</td>
+          </tr>
+          <tr>
+            <td><code>displayHeaderFooter</code></td>
+            <td>불리언</td>
+            <td>헤더와 푸터 표시 여부</td>
+          </tr>
+          <tr>
+            <td><code>headerTemplate</code></td>
+            <td>문자열</td>
+            <td>헤더 HTML 템플릿</td>
+          </tr>
+          <tr>
+            <td><code>footerTemplate</code></td>
+            <td>문자열</td>
+            <td>푸터 HTML 템플릿</td>
+          </tr>
+          <tr>
+            <td><code>scale</code></td>
+            <td>숫자</td>
+            <td>페이지 스케일 (기본값: 1)</td>
+          </tr>
+          <tr>
+            <td><code>timeout</code></td>
+            <td>숫자</td>
+            <td>렌더링 타임아웃 (ms) (최대 55000)</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h4>응답</h4>
+      <p>성공 시 PDF 파일이 반환됩니다.</p>
+    </div>
+
+    <div class="api-box">
+      <div class="d-flex align-items-center mb-2">
+        <span class="method get">GET</span>
+        <code>/api-info</code>
+      </div>
+      <p>API 정보 및 옵션을 조회합니다.</p>
+    </div>
+
+    <h2>사용 예제</h2>
+
+    <h3>Python</h3>
+    <pre><code class="language-python">import requests
+
+BASE_URL = "https://html2pdf-serverless.vercel.app"
+ENDPOINT = "/generate-pdf"
+URL = BASE_URL + ENDPOINT
+
+sample_html = """
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Test PDF</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 2rem;
+    }
+    h1 { color: darkblue; }
+  </style>
+</head>
+<body>
+  <h1>PDF 생성 테스트</h1>
+  <p>이 HTML이 PDF로 변환됩니다.</p>
+</body>
+</html>
+"""
+
+headers = {"Content-Type": "application/json"}
+payload = {
+    "pages": [sample_html],
+    "filename": "example.pdf",
+    "options": {
+        "format": "A4",
+        "landscape": False,
+        "margin": {
+            "top": "1.5cm",
+            "right": "1cm",
+            "bottom": "1.5cm", 
+            "left": "1cm"
+        },
+        "printBackground": True
+    }
+}
+
+response = requests.post(URL, json=payload, headers=headers)
+
+if response.status_code == 200:
+    with open("example.pdf", "wb") as f:
+        f.write(response.content)
+    print("PDF 생성 완료! example.pdf 저장됨")
+else:
+    print("오류 발생:", response.status_code)
+    print("응답:", response.text)</code></pre>
+
+    <h3>JavaScript (Node.js)</h3>
+    <pre><code class="language-javascript">const fs = require('fs');
+const axios = require('axios');
+
+const BASE_URL = 'https://html2pdf-serverless.vercel.app';
+const ENDPOINT = '/generate-pdf';
+const URL = BASE_URL + ENDPOINT;
+
+const sampleHtml = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Test PDF</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 2rem;
+    }
+    h1 { color: darkblue; }
+  </style>
+</head>
+<body>
+  <h1>PDF 생성 테스트</h1>
+  <p>이 HTML이 PDF로 변환됩니다.</p>
+</body>
+</html>
+`;
+
+const payload = {
+  pages: [sampleHtml],
+  filename: 'example.pdf',
+  options: {
+    format: 'A4',
+    landscape: false,
+    margin: {
+      top: '1.5cm',
+      right: '1cm',
+      bottom: '1.5cm',
+      left: '1cm'
+    },
+    printBackground: true
+  }
+};
+
+async function generatePdf() {
+  try {
+    const response = await axios.post(URL, payload, {
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      responseType: 'arraybuffer'
+    });
+
+    fs.writeFileSync('example.pdf', response.data);
+    console.log('PDF 생성 완료! example.pdf 저장됨');
+  } catch (error) {
+    console.error('오류 발생:', error.message);
+    if (error.response) {
+      console.error('응답 상태:', error.response.status);
+      console.error('응답 데이터:', error.response.data.toString());
+    }
+  }
+}
+
+generatePdf();</code></pre>
+
+    <h3>JavaScript (Browser)</h3>
+    <pre><code class="language-javascript">// 브라우저에서 사용하는 경우
+async function generatePdf() {
+  const sampleHtml = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <title>Test PDF</title>
+      <style>
+        body {
+          font-family: Arial, sans-serif;
+          padding: 2rem;
+        }
+        h1 { color: darkblue; }
+      </style>
+    </head>
+    <body>
+      <h1>PDF 생성 테스트</h1>
+      <p>이 HTML이 PDF로 변환됩니다.</p>
+    </body>
+    </html>
+  `;
+
+  const payload = {
+    pages: [sampleHtml],
+    filename: 'example.pdf',
+    options: {
+      format: 'A4',
+      printBackground: true
+    }
+  };
+
+  try {
+    const response = await fetch('https://html2pdf-serverless.vercel.app/generate-pdf', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! Status: ${response.status}`);
+    }
+
+    // PDF 다운로드
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'example.pdf';
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    a.remove();
+  } catch (error) {
+    console.error('PDF 생성 오류:', error);
+  }
+}</code></pre>
+
+    <h2>오류 응답</h2>
+    <p>오류가 발생하면 다음과 같은 형식의 JSON 응답이 반환됩니다:</p>
+    <pre><code class="language-json">{
+  "error": {
+    "type": "ERROR_TYPE",
+    "message": "오류 메시지",
+    "details": "상세 정보 (옵션)"
+  }
+}</code></pre>
+
+    <p>오류 유형:</p>
+    <ul>
+      <li><code>VALIDATION_ERROR</code>: 유효하지 않은 입력 데이터</li>
+      <li><code>RENDER_ERROR</code>: PDF 렌더링 실패</li>
+      <li><code>TIMEOUT_ERROR</code>: 렌더링 타임아웃</li>
+      <li><code>RESOURCE_ERROR</code>: 리소스 로드 실패</li>
+      <li><code>UNKNOWN_ERROR</code>: 알 수 없는 오류</li>
+    </ul>
+
+    <h2>제한 사항</h2>
+    <ul>
+      <li>최대 요청 크기: 10MB</li>
+      <li>최대 렌더링 타임아웃: 55초 (서버리스 환경 제약)</li>
+      <li>외부 폰트는 웹폰트로 URL을 통해 제공해야 합니다.</li>
+    </ul>
+  </div>
+
+  <footer class="bg-light py-3 mt-5">
+    <div class="container text-center">
+      <p>HTML to PDF Serverless API &copy; 2023</p>
+    </div>
+  </footer>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/components/prism-json.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/components/prism-python.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/components/prism-javascript.min.js"></script>
+</body>
+</html> 
