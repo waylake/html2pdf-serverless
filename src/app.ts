@@ -262,6 +262,11 @@ app.get('/api-info', (_req: Request, res: Response) => {
   });
 });
 
+// OpenAPI 문서 제공
+app.get('/api-docs', (_req: Request, res: Response) => {
+  res.sendFile(path.join(__dirname, '../public/openapi.json'));
+});
+
 app.listen(3000, () => {
   console.log(`Server is running on http://localhost:3000`);
 });

@@ -1,0 +1,338 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "HTML to PDF Serverless API",
+    "description": "HTML 문자열을 PDF로 변환하는 서버리스 API 서비스입니다. 여러 HTML 페이지를 단일 PDF 문서로 병합할 수 있습니다.",
+    "version": "1.1.0",
+    "contact": {
+      "name": "API Support"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://html2pdf-serverless.vercel.app",
+      "description": "프로덕션 서버"
+    },
+    {
+      "url": "http://localhost:3000",
+      "description": "로컬 개발 서버"
+    }
+  ],
+  "tags": [
+    {
+      "name": "PDF",
+      "description": "PDF 생성 관련 엔드포인트"
+    },
+    {
+      "name": "정보",
+      "description": "API 정보 조회 엔드포인트"
+    }
+  ],
+  "paths": {
+    "/generate-pdf": {
+      "post": {
+        "tags": ["PDF"],
+        "summary": "HTML 문자열을 PDF로 변환",
+        "description": "하나 이상의 HTML 문자열을 받아 PDF 문서로 변환합니다. 여러 페이지를 제공할 경우 단일 PDF 문서로 병합됩니다.",
+        "operationId": "generatePdf",
+        "requestBody": {
+          "description": "PDF 생성 요청 정보",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PdfRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "PDF 파일 생성 성공",
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            },
+            "headers": {
+              "Content-Type": {
+                "schema": {
+                  "type": "string",
+                  "example": "application/pdf"
+                }
+              },
+              "Content-Disposition": {
+                "schema": {
+                  "type": "string",
+                  "example": "attachment; filename=\"document.pdf\""
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "잘못된 요청 (유효하지 않은 입력)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "type": "VALIDATION_ERROR",
+                    "message": "Missing pages: must be a non-empty array of HTML strings."
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "서버 오류",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "type": "RENDER_ERROR",
+                    "message": "Failed to render page to PDF.",
+                    "details": "Error details here"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-info": {
+      "get": {
+        "tags": ["정보"],
+        "summary": "API 정보 조회",
+        "description": "API 버전 및 지원되는 옵션 정보를 반환합니다.",
+        "operationId": "getApiInfo",
+        "responses": {
+          "200": {
+            "description": "API 정보",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiInfo"
+                },
+                "example": {
+                  "message": "HTML to PDF service is running.",
+                  "version": "1.1.0",
+                  "options": {
+                    "format": "A4 (default), Letter, Legal, Tabloid, Ledger, A0-A6",
+                    "orientation": "portrait (default) or landscape",
+                    "margins": "top, right, bottom, left in cm/mm/in",
+                    "customSize": "width and height in pixels",
+                    "filename": "output filename"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/": {
+      "get": {
+        "tags": ["정보"],
+        "summary": "API 문서 페이지",
+        "description": "HTML 형식의 API 사용 설명서 페이지를 반환합니다.",
+        "operationId": "getDocumentation",
+        "responses": {
+          "200": {
+            "description": "HTML 문서",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "PdfRequest": {
+        "type": "object",
+        "required": ["pages"],
+        "properties": {
+          "pages": {
+            "type": "array",
+            "description": "PDF로 변환할 HTML 문자열 배열",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1
+          },
+          "filename": {
+            "type": "string",
+            "description": "다운로드 시 사용할 파일 이름",
+            "default": "document.pdf",
+            "example": "example.pdf"
+          },
+          "options": {
+            "$ref": "#/components/schemas/PdfOptions"
+          }
+        }
+      },
+      "PdfOptions": {
+        "type": "object",
+        "properties": {
+          "format": {
+            "type": "string",
+            "description": "용지 크기",
+            "default": "A4",
+            "example": "A4",
+            "enum": ["A0", "A1", "A2", "A3", "A4", "A5", "A6", "Letter", "Legal", "Tabloid", "Ledger"]
+          },
+          "width": {
+            "type": "number",
+            "description": "사용자 지정 페이지 너비 (픽셀 단위) - format과 함께 사용 불가",
+            "example": 800
+          },
+          "height": {
+            "type": "number",
+            "description": "사용자 지정 페이지 높이 (픽셀 단위) - format과 함께 사용 불가",
+            "example": 1200
+          },
+          "landscape": {
+            "type": "boolean",
+            "description": "가로 방향 여부",
+            "default": false
+          },
+          "margin": {
+            "type": "object",
+            "description": "페이지 여백",
+            "properties": {
+              "top": {
+                "type": "string",
+                "description": "상단 여백",
+                "example": "1cm"
+              },
+              "right": {
+                "type": "string",
+                "description": "우측 여백",
+                "example": "1cm"
+              },
+              "bottom": {
+                "type": "string",
+                "description": "하단 여백",
+                "example": "1cm"
+              },
+              "left": {
+                "type": "string",
+                "description": "좌측 여백",
+                "example": "1cm"
+              }
+            }
+          },
+          "printBackground": {
+            "type": "boolean",
+            "description": "배경 색상 및 이미지 인쇄 여부",
+            "default": true
+          },
+          "displayHeaderFooter": {
+            "type": "boolean",
+            "description": "헤더와 푸터 표시 여부",
+            "default": false
+          },
+          "headerTemplate": {
+            "type": "string",
+            "description": "헤더 HTML 템플릿"
+          },
+          "footerTemplate": {
+            "type": "string",
+            "description": "푸터 HTML 템플릿"
+          },
+          "scale": {
+            "type": "number",
+            "description": "페이지 스케일",
+            "default": 1,
+            "minimum": 0.1,
+            "maximum": 2
+          },
+          "timeout": {
+            "type": "number",
+            "description": "렌더링 타임아웃 (ms)",
+            "default": 50000,
+            "maximum": 55000
+          }
+        }
+      },
+      "ApiInfo": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "API 상태 메시지"
+          },
+          "version": {
+            "type": "string",
+            "description": "API 버전"
+          },
+          "options": {
+            "type": "object",
+            "description": "지원되는 옵션 정보",
+            "properties": {
+              "format": {
+                "type": "string",
+                "description": "지원되는 용지 크기 정보"
+              },
+              "orientation": {
+                "type": "string",
+                "description": "지원되는 용지 방향 정보"
+              },
+              "margins": {
+                "type": "string",
+                "description": "지원되는 여백 설정 정보"
+              },
+              "customSize": {
+                "type": "string",
+                "description": "지원되는 사용자 지정 크기 정보"
+              },
+              "filename": {
+                "type": "string",
+                "description": "출력 파일명 설정 정보"
+              }
+            }
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "required": ["error"],
+        "properties": {
+          "error": {
+            "type": "object",
+            "required": ["type", "message"],
+            "properties": {
+              "type": {
+                "type": "string",
+                "description": "오류 유형",
+                "enum": ["VALIDATION_ERROR", "RENDER_ERROR", "TIMEOUT_ERROR", "RESOURCE_ERROR", "UNKNOWN_ERROR"]
+              },
+              "message": {
+                "type": "string",
+                "description": "오류 메시지"
+              },
+              "details": {
+                "type": "string",
+                "description": "상세 오류 정보 (선택)"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+} 
