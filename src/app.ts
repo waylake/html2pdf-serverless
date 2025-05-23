@@ -12,7 +12,7 @@ const app: Express = express();
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// CORS 설정 (Vercel 배포용)
+// CORS 설정
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -23,14 +23,6 @@ app.use((req, res, next) => {
   } else {
     next();
   }
-});
-
-// 캐시 최적화 (Vercel Edge Cache 활용)
-app.use((req, res, next) => {
-  if (req.path.includes('/health')) {
-    res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=3600'); // 1시간 캐시
-  }
-  next();
 });
 
 const isVercel = !!process.env.VERCEL || !!process.env.AWS_LAMBDA_FUNCTION_NAME;
@@ -57,8 +49,8 @@ const DEFAULT_PDF_OPTIONS: PdfOptions = {
   timeout: 60000,
 };
 
-// Vercel 최적화된 브라우저 옵션
-const getVercelBrowserOptions = async () => {
+// 브라우저 옵션 설정
+const getBrowserOptions = async () => {
   if (!isVercel) {
     return {
       headless: 'new',
@@ -104,7 +96,7 @@ const getVercelBrowserOptions = async () => {
     };
   }
 
-  // Vercel 환경에서 최적화된 설정
+  // Vercel 환경 설정
   return {
     args: [
       ...chromium.args,
@@ -149,7 +141,7 @@ function createErrorResponse(type: ErrorType, message: string, details?: any): E
   };
 }
 
-// 초고속 PDF 생성 함수 (외부 리소스 허용)
+// PDF 생성 함수
 async function generatePagePdf(browser: any, html: string, options: PdfOptions): Promise<Buffer> {
   const page = await browser.newPage();
   
@@ -262,7 +254,7 @@ app.post('/generate-pdf', asyncHandler(async (req: Request, res: Response) => {
 
   let browser: any;
   try {
-    const browserOptions = await getVercelBrowserOptions();
+    const browserOptions = await getBrowserOptions();
     browser = await puppeteer.launch(browserOptions);
 
     const maxConcurrency = Math.min(pages.length, isVercel ? 3 : 5);
@@ -315,8 +307,6 @@ app.post('/generate-pdf', asyncHandler(async (req: Request, res: Response) => {
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.setHeader('X-Processing-Time', `${processingTime}ms`);
     res.setHeader('X-Pages-Processed', pages.length.toString());
-    res.setHeader('X-Optimization-Level', 'ultra-fast');
-    res.setHeader('X-Cold-Start-Optimized', 'true');
     
     res.send(Buffer.from(mergedPdfBytes));
   } catch (error: any) {
@@ -335,7 +325,7 @@ app.post('/generate-pdf', asyncHandler(async (req: Request, res: Response) => {
 app.get('/', (_req: Request, res: Response) => {
   res.json({ 
     message: 'HTML to PDF API',
-    version: '2.0.0-ultra-fast',
+    version: '2.0.0',
     endpoints: {
       health: '/health',
       generatePdf: '/generate-pdf',
@@ -345,29 +335,25 @@ app.get('/', (_req: Request, res: Response) => {
   });
 });
 
-// Vercel 최적화된 헬스 체크
+// 헬스 체크
 app.get('/health', (_req: Request, res: Response) => {
   const memUsage = process.memoryUsage();
   res.json({ 
     status: 'healthy',
-    version: '2.0.0-ultra-fast',
+    version: '2.0.0',
     environment: isVercel ? 'vercel' : 'local',
     timestamp: new Date().toISOString(),
     puppeteer: !!puppeteer ? 'available' : 'not available',
-    optimizations: {
+    features: {
       parallelProcessing: true,
       externalResources: true,
-      cdnFonts: true,
-      cdnImages: true,
-      javascriptEnabled: true,
-      selectiveResourceBlocking: true,
+      cdnSupport: true,
       memoryOptimization: true
     },
     performance: {
       maxConcurrency: isVercel ? 3 : 5,
       renderTimeout: '60s',
-      fontLoadWait: '500ms',
-      networkWait: 'networkidle0'
+      fontLoadWait: '500ms'
     },
     memory: {
       rss: `${Math.round(memUsage.rss / 1024 / 1024)}MB`,
@@ -378,14 +364,7 @@ app.get('/health', (_req: Request, res: Response) => {
       maxPages: isVercel ? 10 : 30,
       timeout: '60s',
       memoryLimit: isVercel ? '1024MB' : 'unlimited'
-    },
-    supportedCDNs: [
-      'fonts.googleapis.com',
-      'fonts.gstatic.com', 
-      'cdn.jsdelivr.net',
-      'cdnjs.cloudflare.com',
-      'unpkg.com'
-    ]
+    }
   });
 });
 
@@ -421,16 +400,6 @@ app.get('/docs', redoc.default({
     noAutoAuth: true
   }
 }));
-
-// Cold Start 방지를 위한 간단한 warm-up 엔드포인트
-app.get('/warm-up', (_req: Request, res: Response) => {
-  res.json({
-    status: 'warm',
-    timestamp: new Date().toISOString(),
-    environment: isVercel ? 'vercel' : 'local',
-    message: 'Server is ready for requests'
-  });
-});
 
 // 에러 핸들링 미들웨어
 const errorHandler: ErrorRequestHandler = (error: any, req: Request, res: Response, next: NextFunction) => {
