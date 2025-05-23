@@ -36,11 +36,32 @@ export const PdfOptionsSchema = z.object({
   }
 );
 
+// 폰트 옵션 스키마
+export const FontOptionsSchema = z.object({
+  family: z.string().optional(),
+  url: z.string().url().optional(),
+  format: z.enum(['woff', 'woff2', 'ttf', 'otf']).optional(),
+  weight: z.union([z.string(), z.number()]).optional(),
+  style: z.enum(['normal', 'italic', 'oblique']).optional(),
+}).refine(
+  (data) => {
+    // family와 url은 함께 사용되어야 함
+    if ((data.family && !data.url) || (!data.family && data.url)) {
+      return false;
+    }
+    return true;
+  },
+  {
+    message: "Font family and URL must be used together",
+  }
+);
+
 // PDF 생성 요청 스키마
 export const PdfRequestSchema = z.object({
   pages: z.array(z.string().min(1)).min(1, "Pages array must contain at least one HTML string"),
   filename: z.string().optional().default('document.pdf'),
   options: PdfOptionsSchema.optional(),
+  font: FontOptionsSchema.optional(),
 });
 
 // 에러 타입 정의
@@ -63,6 +84,7 @@ export const ErrorResponseSchema = z.object({
 
 // 타입 추출
 export type PdfOptions = z.infer<typeof PdfOptionsSchema>;
+export type FontOptions = z.infer<typeof FontOptionsSchema>;
 export type PdfRequest = z.infer<typeof PdfRequestSchema>;
 export type ErrorType = z.infer<typeof ErrorTypeSchema>;
 export type ErrorResponse = z.infer<typeof ErrorResponseSchema>; 

@@ -356,6 +356,9 @@ export const openApiSpec = {
           },
           options: {
             $ref: '#/components/schemas/PdfOptions'
+          },
+          font: {
+            $ref: '#/components/schemas/FontOptions'
           }
         },
         example: {
@@ -367,6 +370,13 @@ export const openApiSpec = {
           options: {
             format: 'A4',
             printBackground: true
+          },
+          font: {
+            family: 'Pretendard',
+            url: 'https://cdn.jsdelivr.net/gh/Project-Noonnu/noonfonts_2107@1.1/Pretendard-Regular.woff2',
+            format: 'woff2',
+            weight: 400,
+            style: 'normal'
           }
         }
       },
@@ -491,6 +501,48 @@ export const openApiSpec = {
             left: '1cm'
           },
           timeout: 30000
+        }
+      },
+      FontOptions: {
+        type: 'object',
+        description: '🎨 폰트 옵션',
+        properties: {
+          family: {
+            type: 'string',
+            description: '폰트 가족',
+            example: 'Pretendard'
+          },
+          url: {
+            type: 'string',
+            description: '폰트 파일 URL',
+            example: 'https://cdn.jsdelivr.net/gh/Project-Noonnu/noonfonts_2107@1.1/Pretendard-Regular.woff2'
+          },
+          format: {
+            type: 'string',
+            description: '폰트 형식',
+            enum: ['woff2', 'woff', 'ttf'],
+            example: 'woff2'
+          },
+          weight: {
+            type: 'number',
+            description: '폰트 두께',
+            minimum: 100,
+            maximum: 900,
+            example: 400
+          },
+          style: {
+            type: 'string',
+            description: '폰트 스타일',
+            enum: ['normal', 'italic', 'oblique'],
+            example: 'normal'
+          }
+        },
+        example: {
+          family: 'Pretendard',
+          url: 'https://cdn.jsdelivr.net/gh/Project-Noonnu/noonfonts_2107@1.1/Pretendard-Regular.woff2',
+          format: 'woff2',
+          weight: 400,
+          style: 'normal'
         }
       },
       HealthResponse: {
