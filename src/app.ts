@@ -160,7 +160,7 @@ async function downloadAndEncodeFont(fontOptions: FontOptions): Promise<string |
     const fontBuffer = await response.arrayBuffer();
     
     // 폰트 크기 제한 (1MB)
-    if (fontBuffer.byteLength > 1024 * 1024) {
+    if (fontBuffer.byteLength > 1024 * 1024 * 2) {
       console.warn(`⚠️ 폰트가 너무 큼: ${fontBuffer.byteLength} bytes`);
       return null;
     }
