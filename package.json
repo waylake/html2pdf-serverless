@@ -1,19 +1,25 @@
 {
   "scripts": {
-    "build": "tsc && npm run copy-public",
-    "copy-public": "cp -r public dist/public",
-    "start": "node dist/src/app.js"
+    "build": "node esbuild.config.js",
+    "build:dev": "node esbuild.config.js watch",
+    "start": "node dist/app.js",
+    "dev": "tsx watch src/app.ts",
+    "test": "node dist/app.js"
   },
   "devDependencies": {
     "@types/express": "^5.0.2",
     "@types/node": "^22.15.21",
-    "express": "^5.1.0",
+    "esbuild": "^0.20.2",
+    "tsx": "^4.7.1",
     "typescript": "^5.8.3"
   },
   "dependencies": {
     "@sparticuz/chromium": "^133.0.0",
+    "express": "^5.1.0",
     "pdf-lib": "^1.17.1",
     "puppeteer": "^24.9.0",
-    "puppeteer-core": "^24.9.0"
+    "puppeteer-core": "^24.9.0",
+    "redoc-express": "^2.1.0",
+    "zod": "^3.22.4"
   }
 }
