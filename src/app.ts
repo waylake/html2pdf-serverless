@@ -149,7 +149,7 @@ function createErrorResponse(type: ErrorType, message: string, details?: any): E
   };
 }
 
-// Vercel 최적화된 PDF 생성 함수
+// 초고속 PDF 생성 함수 (외부 리소스 허용)
 async function generatePagePdf(browser: any, html: string, options: PdfOptions): Promise<Buffer> {
   const page = await browser.newPage();
   
@@ -157,39 +157,54 @@ async function generatePagePdf(browser: any, html: string, options: PdfOptions):
     // 최적화된 뷰포트 설정
     await page.setViewport({ width: 1280, height: 720, deviceScaleFactor: 1 });
     
-    // 모든 리소스 차단으로 최대 속도 확보
+    // 선택적 리소스 차단 (폰트와 이미지는 허용)
     await page.setRequestInterception(true);
     page.on('request', (req: any) => {
       const resourceType = req.resourceType();
-      // HTML과 필수 스크립트만 허용, 나머지 모든 리소스 차단
-      if (['document', 'script'].includes(resourceType)) {
-        req.continue();
+      const url = req.url();
+      
+      // 허용할 리소스 타입
+      if (['document', 'script', 'stylesheet', 'font', 'image'].includes(resourceType)) {
+        // CDN 폰트와 이미지는 허용
+        if (resourceType === 'font' || resourceType === 'image' || 
+            url.includes('fonts.googleapis.com') || 
+            url.includes('fonts.gstatic.com') ||
+            url.includes('cdn.jsdelivr.net') ||
+            url.includes('cdnjs.cloudflare.com') ||
+            url.includes('unpkg.com')) {
+          req.continue();
+        } else if (['document', 'script', 'stylesheet'].includes(resourceType)) {
+          req.continue();
+        } else {
+          req.abort();
+        }
       } else {
+        // 기타 리소스는 차단 (media, websocket 등)
         req.abort();
       }
     });
 
-    // JavaScript 비활성화로 렌더링 속도 향상
-    await page.setJavaScriptEnabled(false);
+    // JavaScript는 유지 (폰트 로딩에 필요할 수 있음)
+    await page.setJavaScriptEnabled(true);
     
     // 캐시 비활성화
     await page.setCacheEnabled(false);
 
     const pdfOptions = { ...DEFAULT_PDF_OPTIONS, ...options };
-    const renderTimeout = Math.min(pdfOptions.timeout || 60000, 60000); // 60초로 변경
+    const renderTimeout = Math.min(pdfOptions.timeout || 60000, 60000);
     
-    // 최소한의 대기로 빠른 렌더링
+    // 외부 리소스 로딩을 위해 대기 시간 증가
     await page.setContent(html, { 
-      waitUntil: 'domcontentloaded', // networkidle 대신 domcontentloaded 사용
+      waitUntil: 'networkidle0', // 네트워크가 완전히 idle 될 때까지 대기
       timeout: renderTimeout 
     });
     
-    // 대기 시간 최소화
-    await new Promise(resolve => setTimeout(resolve, 10)); // 50ms에서 10ms로 단축
+    // 폰트 로딩을 위한 추가 대기
+    await new Promise(resolve => setTimeout(resolve, 500));
     
     const pdfBuffer = await page.pdf({
       ...pdfOptions,
-      omitBackground: !pdfOptions.printBackground, // 배경 생략으로 속도 향상
+      omitBackground: !pdfOptions.printBackground,
     });
     
     return pdfBuffer;
@@ -197,13 +212,13 @@ async function generatePagePdf(browser: any, html: string, options: PdfOptions):
     if (error.name === 'TimeoutError') {
       throw createErrorResponse(
         'TIMEOUT_ERROR',
-        'Rendering timed out. Try reducing content complexity.',
+        'Rendering timed out. Try reducing content complexity or external resources.',
         error.message
       );
     } else if (error.message && error.message.includes('net::')) {
       throw createErrorResponse(
         'RESOURCE_ERROR',
-        'Failed to load resources.',
+        'Failed to load external resources (fonts/images).',
         error.message
       );
     }
@@ -301,6 +316,7 @@ app.post('/generate-pdf', asyncHandler(async (req: Request, res: Response) => {
     res.setHeader('X-Processing-Time', `${processingTime}ms`);
     res.setHeader('X-Pages-Processed', pages.length.toString());
     res.setHeader('X-Optimization-Level', 'ultra-fast');
+    res.setHeader('X-Cold-Start-Optimized', 'true');
     
     res.send(Buffer.from(mergedPdfBytes));
   } catch (error: any) {
@@ -340,17 +356,18 @@ app.get('/health', (_req: Request, res: Response) => {
     puppeteer: !!puppeteer ? 'available' : 'not available',
     optimizations: {
       parallelProcessing: true,
-      resourceBlocking: true,
-      javascriptDisabled: true,
-      backgroundOptimization: true,
-      fastRendering: true,
+      externalResources: true,
+      cdnFonts: true,
+      cdnImages: true,
+      javascriptEnabled: true,
+      selectiveResourceBlocking: true,
       memoryOptimization: true
     },
     performance: {
       maxConcurrency: isVercel ? 3 : 5,
       renderTimeout: '60s',
-      waitTime: '10ms',
-      pdfOptimizations: 'enabled'
+      fontLoadWait: '500ms',
+      networkWait: 'networkidle0'
     },
     memory: {
       rss: `${Math.round(memUsage.rss / 1024 / 1024)}MB`,
@@ -361,7 +378,14 @@ app.get('/health', (_req: Request, res: Response) => {
       maxPages: isVercel ? 10 : 30,
       timeout: '60s',
       memoryLimit: isVercel ? '1024MB' : 'unlimited'
-    }
+    },
+    supportedCDNs: [
+      'fonts.googleapis.com',
+      'fonts.gstatic.com', 
+      'cdn.jsdelivr.net',
+      'cdnjs.cloudflare.com',
+      'unpkg.com'
+    ]
   });
 });
 
@@ -397,6 +421,16 @@ app.get('/docs', redoc.default({
     noAutoAuth: true
   }
 }));
+
+// Cold Start 방지를 위한 간단한 warm-up 엔드포인트
+app.get('/warm-up', (_req: Request, res: Response) => {
+  res.json({
+    status: 'warm',
+    timestamp: new Date().toISOString(),
+    environment: isVercel ? 'vercel' : 'local',
+    message: 'Server is ready for requests'
+  });
+});
 
 // 에러 핸들링 미들웨어
 const errorHandler: ErrorRequestHandler = (error: any, req: Request, res: Response, next: NextFunction) => {
