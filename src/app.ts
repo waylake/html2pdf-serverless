@@ -3,7 +3,7 @@ import { PDFDocument } from 'pdf-lib';
 import { ZodError } from 'zod';
 import * as redoc from 'redoc-express';
 
-import { PdfRequestSchema, PdfOptions, FontOptions, ErrorType, ErrorResponse } from './schemas';
+import { PdfRequestSchema, PdfOptions, ErrorType, ErrorResponse } from './schemas';
 import { openApiSpec } from './swagger';
 
 const app: Express = express();
@@ -141,86 +141,6 @@ function createErrorResponse(type: ErrorType, message: string, details?: any): E
   };
 }
 
-// 폰트 다운로드 및 base64 변환 함수
-async function downloadAndEncodeFont(fontOptions: FontOptions): Promise<string | null> {
-  if (!fontOptions.family || !fontOptions.url) {
-    return null;
-  }
-
-  try {
-    console.log(`📥 폰트 다운로드 중: ${fontOptions.url}`);
-    const response = await fetch(fontOptions.url, { 
-      signal: AbortSignal.timeout(10000) // 10초 타임아웃
-    });
-    
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-
-    const fontBuffer = await response.arrayBuffer();
-    
-    // 폰트 크기 제한 (1MB)
-    if (fontBuffer.byteLength > 1024 * 1024 * 2) {
-      console.warn(`⚠️ 폰트가 너무 큼: ${fontBuffer.byteLength} bytes`);
-      return null;
-    }
-
-    const base64Font = Buffer.from(fontBuffer).toString('base64');
-    console.log(`✅ 폰트 다운로드 완료: ${fontBuffer.byteLength} bytes`);
-    
-    return base64Font;
-  } catch (error: any) {
-    console.error(`❌ 폰트 다운로드 실패: ${error.message}`);
-    return null;
-  }
-}
-
-// 폰트 CSS 생성 함수
-function generateFontCSS(fontOptions: FontOptions, base64Data: string): string {
-  const format = fontOptions.format || 'woff2';
-  const weight = fontOptions.weight || 400;
-  const style = fontOptions.style || 'normal';
-  
-  return `
-    @font-face {
-      font-family: '${fontOptions.family}';
-      src: url('data:font/${format};base64,${base64Data}') format('${format}');
-      font-weight: ${weight};
-      font-style: ${style};
-      font-display: swap;
-    }`;
-}
-
-// HTML에 폰트 CSS 주입 함수
-function injectFontCSS(html: string, fontCSS: string): string {
-  // <head> 태그 안에 폰트 CSS 주입
-  const headRegex = /<head[^>]*>/i;
-  const match = html.match(headRegex);
-  
-  if (match) {
-    const headTag = match[0];
-    const insertPosition = match.index! + headTag.length;
-    return html.slice(0, insertPosition) + 
-           `\n<style>${fontCSS}</style>\n` + 
-           html.slice(insertPosition);
-  }
-  
-  // <head> 태그가 없으면 <html> 태그 다음에 추가
-  const htmlRegex = /<html[^>]*>/i;
-  const htmlMatch = html.match(htmlRegex);
-  
-  if (htmlMatch) {
-    const htmlTag = htmlMatch[0];
-    const insertPosition = htmlMatch.index! + htmlTag.length;
-    return html.slice(0, insertPosition) + 
-           `\n<head><style>${fontCSS}</style></head>\n` + 
-           html.slice(insertPosition);
-  }
-  
-  // HTML 구조가 없으면 맨 앞에 추가
-  return `<style>${fontCSS}</style>\n${html}`;
-}
-
 // PDF 생성 함수
 async function generatePagePdf(browser: any, html: string, options: PdfOptions): Promise<Buffer> {
   const page = await browser.newPage();
@@ -322,7 +242,7 @@ app.post('/generate-pdf', asyncHandler(async (req: Request, res: Response) => {
 
   // Zod 검증
   const validatedData = PdfRequestSchema.parse(req.body);
-  const { pages, options = {}, filename, font } = validatedData;
+  const { pages, options = {}, filename } = validatedData;
 
   // 페이지 수 제한 (로컬에서는 더 많이 허용)
   const maxPages = isVercel ? 10 : 30;
@@ -333,21 +253,7 @@ app.post('/generate-pdf', asyncHandler(async (req: Request, res: Response) => {
   }
 
   let browser: any;
-  let fontCSS = '';
-  
   try {
-    // 폰트 처리
-    if (font && font.family && font.url) {
-      console.log(`🔤 폰트 처리 시작: ${font.family}`);
-      const base64Font = await downloadAndEncodeFont(font);
-      if (base64Font) {
-        fontCSS = generateFontCSS(font, base64Font);
-        console.log(`✅ 폰트 CSS 생성 완료`);
-      } else {
-        console.warn(`⚠️ 폰트 로드 실패, 기본 폰트 사용`);
-      }
-    }
-
     const browserOptions = await getBrowserOptions();
     browser = await puppeteer.launch(browserOptions);
 
@@ -357,9 +263,7 @@ app.post('/generate-pdf', asyncHandler(async (req: Request, res: Response) => {
     for (let i = 0; i < pages.length; i += maxConcurrency) {
       const chunk = pages.slice(i, i + maxConcurrency);
       const chunkPromises = chunk.map(async (html, index) => {
-        // 폰트 CSS가 있으면 HTML에 주입
-        const processedHtml = fontCSS ? injectFontCSS(html, fontCSS) : html;
-        return generatePagePdf(browser, processedHtml, options);
+        return generatePagePdf(browser, html, options);
       });
       
       const chunkResults = await Promise.all(chunkPromises);
@@ -403,7 +307,6 @@ app.post('/generate-pdf', asyncHandler(async (req: Request, res: Response) => {
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.setHeader('X-Processing-Time', `${processingTime}ms`);
     res.setHeader('X-Pages-Processed', pages.length.toString());
-    res.setHeader('X-Font-Used', font?.family || 'system');
     
     res.send(Buffer.from(mergedPdfBytes));
   } catch (error: any) {
